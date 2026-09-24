@@ -1,0 +1,1144 @@
+/* ===== Variables de diseño (colores tomados del robot: azul, naranja y cian) ===== */
+:root {
+  --bg: #0b0b0d;
+  --surface: #23234a;
+  --glass: rgba(24, 24, 56, 0.66);
+  --glass-strong: rgba(20, 20, 48, 0.92);
+  --glass-border: rgba(255, 255, 255, 0.12);
+  --text: #f5f1ff;
+  --text-soft: rgba(245, 241, 255, 0.62);
+  --accent: #ff7a2f;
+  --accent-soft: rgba(255, 122, 47, 0.2);
+  --glow: #33f2ff;
+  --radius-lg: 22px;
+  --radius-md: 14px;
+  --gutter: 12px;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --font: ui-rounded, "SF Pro Rounded", "Nunito", "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+  /* Evita el "rebote" y el recargar al deslizar en el celular */
+  overscroll-behavior: none;
+}
+
+button { font: inherit; color: inherit; cursor: pointer; }
+
+svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+:focus-visible { outline: 2px solid var(--glow); outline-offset: 2px; }
+
+/* ===== Estructura: arriba el personaje (44% de la pantalla), abajo pedir viaje (56%) ===== */
+.app {
+  display: grid;
+  grid-template-rows: 44fr 56fr;
+  height: 100vh;
+  height: 100dvh;
+}
+
+/* ===== Cuadro del personaje (mitad superior) ===== */
+.character-stage {
+  position: relative;
+  min-height: 0;
+  overflow: hidden;
+  /* Tarjeta con las 4 esquinas redondeadas y separada de los bordes de la pantalla */
+  margin: calc(var(--safe-top) + 10px) 10px 0;
+  border-radius: var(--radius-lg);
+  background: #3b2f6e;
+  box-shadow: 0 10px 30px rgba(8, 6, 30, 0.45);
+  isolation: isolate;
+  /* Permite que los paneles de Historia/Oráculo midan su alto máximo según el cuadro (cqh) */
+  container-type: size;
+}
+
+/*
+ * Viñeta muy suave solo en los bordes (el centro, donde está el robot, queda intacto)
+ * y un borde fino, para que la escena se integre con la app oscura sin perder su identidad.
+ */
+.character-stage::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  border-radius: inherit;
+  background:
+    radial-gradient(ellipse 85% 75% at 50% 45%, transparent 62%, rgba(11, 11, 13, 0.28) 100%),
+    linear-gradient(to bottom, transparent 78%, rgba(11, 11, 13, 0.3));
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+#viewport {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  /* El lienzo maneja los gestos de girar sin que el navegador haga scroll */
+  touch-action: none;
+}
+
+/* ===== Superficie de vidrio reutilizable ===== */
+.character-switch, .sheet__panel {
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+}
+
+/* ===== Fila inferior del cuadro: 2 columnas (personaje | premios) ===== */
+.stage-bar {
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: 16px;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+}
+
+/* Columna izquierda: botón con el nombre del personaje (abre el selector) */
+.character-switch {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 40px;
+  padding: 0 12px 0 5px;
+  border-radius: 999px;
+}
+
+.character-switch__badge {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #2a5bb0, #3b7de0);
+  color: var(--glow);
+}
+.character-switch__badge svg { width: 16px; height: 16px; }
+.character-switch__name { max-width: 130px; font-size: 14px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.icon-button {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 0;
+  background: none;
+  transition: background 0.2s, color 0.2s, transform 0.15s;
+}
+.icon-button svg { width: 17px; height: 17px; }
+.icon-button:active { transform: scale(0.92); }
+
+/* ===== Columna izquierda del cuadro: Oráculo, Historia y alimentos (botones redondos solo con icono) ===== */
+.stage-top {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  right: 10px;
+  z-index: 3;
+  pointer-events: none;
+  /* Tamaño de los botones laterales: se adapta al alto del cuadro para que los 5 quepan siempre */
+  --side-button: clamp(32px, 11cqh, 42px);
+  --side-gap: clamp(5px, 1.8cqh, 8px);
+}
+.stage-top > * { pointer-events: auto; }
+
+/* Separación extra entre los botones de Oráculo/Historia y los alimentos */
+.side-column { display: inline-flex; flex-direction: column; gap: calc(var(--side-gap) * 4); }
+.info-buttons { display: flex; flex-direction: column; gap: var(--side-gap); }
+
+.info-toggle {
+  display: grid;
+  place-items: center;
+  width: var(--side-button);
+  height: var(--side-button);
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid var(--glass-border);
+  background: var(--glass);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  font-size: calc(var(--side-button) * 0.48);
+  line-height: 1;
+  transition: border-color 0.2s, background 0.2s;
+}
+.info-toggle[aria-expanded="true"] { border-color: var(--accent); background: var(--glass-strong); }
+
+/* Panel desplegable a la derecha de los botones, dentro del cuadro del personaje */
+.info-panel {
+  position: absolute;
+  top: 0;
+  left: calc(var(--side-button) + 10px);
+  right: 0;
+  /* Nunca más alto que el cuadro (sin tapar la fila de abajo); si la historia es larga, se desplaza un poco */
+  max-height: calc(100cqh - 76px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 14px 16px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--glass-border);
+  background: var(--glass-strong);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  animation: panel-in 0.2s ease-out;
+}
+.info-panel[hidden] { display: none; }
+@keyframes panel-in { from { transform: translateX(-8px); opacity: 0; } }
+.info-panel__title { margin: 0 0 8px; font-size: 16px; font-weight: 800; color: var(--accent); }
+.info-panel__body p { margin: 0 0 8px; font-size: 14px; line-height: 1.5; color: var(--text); }
+.info-panel__body p:last-child { margin-bottom: 0; }
+
+/*
+ * El Oráculo aparece centrado verticalmente sobre el personaje (no pegado arriba).
+ * 50cqh = mitad del alto del cuadro; se restan los 10px con los que empieza la columna izquierda.
+ */
+.info-panel--oracle { text-align: center; top: calc(50cqh - 10px); translate: 0 -50%; }
+.info-panel--oracle .info-panel__title { color: var(--glow); }
+.oracle-text { margin: 0; font-size: 17px; font-weight: 700; line-height: 1.45; }
+
+/* ===== Barra de puntos: muy delgada, hasta abajo del cuadro, un segmento por punto ===== */
+.score-bar {
+  position: absolute;
+  left: 18px;
+  right: 18px;
+  bottom: 6px;
+  z-index: 2;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 3px;
+  height: 4px;
+  pointer-events: none;
+}
+.score-bar__segment {
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.22);
+  transition: background 0.35s, box-shadow 0.35s;
+}
+.score-bar__segment.is-filled {
+  background: linear-gradient(90deg, var(--accent), #ffb347);
+  box-shadow: 0 0 6px rgba(255, 122, 47, 0.7);
+}
+
+/* ===== Premios para alimentar: en la columna izquierda, cada uno independiente ===== */
+.feed-tray { display: flex; flex-direction: column; gap: var(--side-gap); }
+
+/* Mismo tamaño y estilo que los botones de Oráculo e Historia */
+.feed-slot {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: var(--side-button);
+  height: var(--side-button);
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid var(--glass-border);
+  background: var(--glass);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  /* El dedo arrastra el premio sin mover la página ni girar la escena */
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: grab;
+  transition: opacity 0.2s, transform 0.15s;
+}
+.feed-slot__emoji { font-size: calc(var(--side-button) * 0.52); line-height: 1; }
+/* Contador a la derecha del botón, para que no se encime con el de arriba */
+.feed-slot__count {
+  position: absolute;
+  top: -4px;
+  right: -8px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #2a1204;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 18px;
+  text-align: center;
+}
+.feed-slot.is-empty { cursor: default; }
+.feed-slot.is-empty .feed-slot__emoji { opacity: 0.4; }
+/* Sin unidades de ese alimento: no se muestra la burbuja del número */
+.feed-slot.is-empty .feed-slot__count { display: none; }
+.feed-slot.is-dragging { opacity: 0.5; }
+.feed-slot.is-bumped { animation: bump 0.45s ease-out; }
+@keyframes bump { 40% { transform: scale(1.2); } }
+
+/* Copia del premio que sigue al dedo mientras se arrastra */
+.feed-ghost {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 50;
+  font-size: 44px;
+  line-height: 1;
+  pointer-events: none;
+  filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.35));
+}
+.feed-ghost.is-eaten { scale: 0.2; opacity: 0; transition: scale 0.25s ease-in, opacity 0.25s ease-in; }
+.feed-ghost.is-returning { transition: transform 0.25s ease-out; }
+
+/* Aviso de premio nuevo */
+.reward-toast {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  z-index: 2;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: var(--glass-strong);
+  border: 1px solid var(--glass-border);
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+  opacity: 0;
+  transform: translate(-50%, -8px);
+  transition: opacity 0.25s, transform 0.25s;
+  pointer-events: none;
+}
+.reward-toast.is-visible { opacity: 1; transform: translate(-50%, 0); }
+
+/* ===== Pantalla de carga (solo dentro del cuadro del personaje) ===== */
+.loader {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 14px;
+  background: radial-gradient(circle at 50% 40%, #3b2f6e, var(--bg));
+  transition: opacity 0.4s;
+}
+.loader.is-hidden { opacity: 0; pointer-events: none; }
+.loader p { margin: 0; color: var(--text-soft); }
+.loader__ring {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 4px solid rgba(255, 255, 255, 0.12);
+  border-top-color: var(--accent);
+  animation: spin 0.9s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ===== Parte inferior: módulo para pedir viaje (estilo sobrio tipo app de viajes ejecutivos) ===== */
+.trip-panel {
+  /* Paleta propia del módulo: negros, grises y blanco; verde solo para estados positivos */
+  --t-surface: #151518;
+  --t-surface-2: #1e1e22;
+  --t-border: #2a2a30;
+  --t-border-strong: #3a3a42;
+  --t-text: #f5f5f6;
+  --t-muted: #9b9ba5;
+  --t-positive: #22c55e;
+  --t-accent: #ff7a2f;
+  --t-accent-2: #ffb347;
+  --t-accent-soft: rgba(255, 122, 47, 0.14);
+  --t-info: #38bdf8;
+  --t-warning: #fbbf24;
+  --t-radius: 12px;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 12px 16px calc(var(--safe-bottom) + 12px);
+  -webkit-overflow-scrolling: touch;
+  color: var(--t-text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  letter-spacing: -0.005em;
+  /* Contenedor de consulta: los tamaños internos crecen con el alto disponible (unidades cqh) */
+  container-type: size;
+  position: relative;
+}
+.trip-panel svg { width: 18px; height: 18px; stroke-width: 1.8; }
+
+/*
+ * Medidas que se adaptan al alto de la sección: en celulares chicos usan el mínimo
+ * y en pantallas altas crecen hasta el máximo, para aprovechar todo el espacio sin scroll.
+ */
+.trip-step {
+  /* Crecen más con el alto disponible para ocupar todo el espacio (con topes para pantallas altas) */
+  --gap: clamp(5px, 1.8cqh, 14px);
+  /* Fórmula "a·cqh − b": en celulares chicos se quedan en el mínimo y crecen rápido cuando sobra alto */
+  --row: clamp(40px, 16cqh - 20px, 66px);
+  --chip: clamp(32px, 12cqh - 12px, 52px);
+  --option: clamp(36px, 13cqh - 12px, 58px);
+  --button: clamp(46px, 15cqh - 10px, 64px);
+  --card-pad: clamp(6px, 4.5cqh - 10px, 18px);
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
+  min-height: 100%;
+}
+.trip-step[hidden] { display: none; }
+
+/* Entrada de cada paso: sus elementos aparecen escalonados de abajo hacia arriba */
+.trip-step > * { animation: step-in 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+.trip-step > :nth-child(2) { animation-delay: 0.04s; }
+.trip-step > :nth-child(3) { animation-delay: 0.08s; }
+.trip-step > :nth-child(4) { animation-delay: 0.12s; }
+.trip-step > :nth-child(5) { animation-delay: 0.16s; }
+.trip-step > :nth-child(6) { animation-delay: 0.2s; }
+.trip-step > :nth-child(n + 7) { animation-delay: 0.24s; }
+@keyframes step-in { from { opacity: 0; transform: translateY(10px); } }
+.trip-title { margin: 0; font-size: clamp(20px, 7cqh - 6px, 30px); font-weight: 700; letter-spacing: -0.02em; }
+
+/* Ruta: punto de partida y destino unidos por una línea vertical */
+.route-card {
+  position: relative;
+  border-radius: var(--t-radius);
+  background: var(--t-surface);
+  border: 1px solid var(--t-border);
+}
+.route-card__connector {
+  position: absolute;
+  left: 21px;
+  top: calc(var(--row) / 2 + 6px);
+  height: calc(var(--row) - 4px);
+  border-left: 1.5px dotted var(--t-muted);
+}
+.route-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: var(--row);
+  padding: 4px 8px 4px 14px;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+
+/* Campo activo (el que llenarán Casa/Trabajo/Plaza): etiqueta en naranja */
+.route-row { transition: background 0.2s, box-shadow 0.2s; }
+.route-row--origin { border-radius: var(--t-radius) var(--t-radius) 0 0; }
+.route-row--destination { border-radius: 0 0 var(--t-radius) var(--t-radius); }
+.route-row.is-active .route-row__label { color: var(--t-accent); }
+
+
+/* Campo ya lleno: solo se ilumina el contorno en naranja (sin rellenar), como "Seleccionar pago" */
+.route-row.is-filled {
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px var(--t-accent), 0 0 12px rgba(255, 122, 47, 0.35);
+}
+
+/* Iconos a la orilla de cada campo: mapa, mi ubicación y palomita */
+.route-row__tools { display: flex; align-items: center; gap: 12px; flex: none; }
+.route-tool {
+  display: grid;
+  place-items: center;
+  width: clamp(32px, 8cqh, 38px);
+  height: clamp(32px, 8cqh, 38px);
+  padding: 0;
+  border: 1px solid var(--t-border);
+  border-radius: 50%;
+  background: var(--t-surface-2);
+  color: var(--t-text);
+  transition: transform 0.15s, border-color 0.2s, color 0.2s;
+}
+.route-tool:active { transform: scale(0.9); border-color: var(--t-accent); color: var(--t-accent); }
+.route-row + .route-card__connector + .route-row { border-top: 1px solid var(--t-border); }
+.route-row__text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.route-row__label { font-size: clamp(11px, 2.5cqh, 12px); font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--t-muted); }
+.route-row__input {
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  outline: none;
+  background: none;
+  color: var(--t-text);
+  font: inherit;
+  font-size: clamp(16px, 5cqh - 3px, 19px); /* mínimo 16px: evita que el iPhone haga zoom al escribir */
+  font-weight: 600;
+}
+.route-row__input::placeholder { color: var(--t-muted); font-weight: 500; }
+.route-marker { flex: none; width: 10px; height: 10px; }
+.route-marker--origin { border-radius: 50%; background: var(--t-text); box-shadow: 0 0 0 3px var(--t-surface), 0 0 0 4.5px var(--t-text); }
+.route-marker--destination { background: var(--t-text); }
+
+
+/* Lugares rápidos */
+.quick-places { display: flex; gap: 8px; }
+.quick-place {
+  flex: 1 1 0;
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: var(--chip);
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid var(--t-border);
+  background: var(--t-surface);
+  color: var(--t-text);
+  font-size: clamp(13px, 4.5cqh - 3px, 17px);
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  transition: background 0.2s, color 0.2s, border-color 0.2s;
+}
+.quick-place svg { flex: none; width: clamp(16px, 4cqh, 20px); height: clamp(16px, 4cqh, 20px); }
+/* Seleccionado: invertido (blanco con texto negro) */
+.quick-place[aria-pressed="true"] { background: var(--t-accent-soft); border-color: var(--t-accent); color: #ffd9c2; }
+.quick-place[aria-pressed="true"] svg { color: var(--t-accent); }
+/* Animación al tocar (igual en lugares, propinas, pago elegido y opciones de pago) */
+.quick-place:active, .tip-option:active, .payment__option:active, .payment__current:active { transform: scale(0.96); }
+
+/* Opciones de viaje: ocupan el resto del alto para que el botón quede abajo */
+/*
+ * Formulario: el espacio que sobra se reparte en partes iguales entre cada bloque
+ * (título, ruta, lugares, tipo de viaje, pago y botón) en vez de juntarse arriba del botón.
+ * .ride-options no genera caja propia para que sus elementos participen en ese reparto.
+ */
+[data-step="form"] { justify-content: space-between; }
+/* En PC/tablet sobra mucho alto: el formulario se agrupa al centro con separación fija */
+@media (min-width: 900px) {
+  [data-step="form"] { justify-content: center; gap: 20px; }
+}
+.ride-options { display: contents; }
+/* Como .ride-options no tiene caja, sus elementos hacen su propia animación de entrada */
+.ride-options > * { animation: step-in 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+.ride-options > :nth-child(1) { animation-delay: 0.16s; }
+.ride-options > :nth-child(2) { animation-delay: 0.2s; }
+.ride-options > :nth-child(3) { animation-delay: 0.24s; }
+
+.ride-list { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.ride-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-areas: "icon price" "text text";
+  align-items: center;
+  row-gap: 4px;
+  column-gap: 8px;
+  padding: var(--card-pad) 12px;
+  border-radius: var(--t-radius);
+  border: 1.5px solid var(--t-border);
+  background: var(--t-surface);
+  color: var(--t-text);
+  text-align: left;
+  transition: border-color 0.2s, background 0.2s;
+}
+.ride-card[aria-checked="true"] {
+  border-color: var(--t-accent);
+  background: linear-gradient(160deg, rgba(255, 122, 47, 0.16), var(--t-surface-2) 60%);
+  box-shadow: 0 6px 18px rgba(255, 122, 47, 0.18);
+  animation: card-pop 0.3s ease-out;
+}
+@keyframes card-pop { 50% { transform: scale(1.03); } }
+.ride-card__icon { grid-area: icon; color: var(--t-muted); transition: color 0.2s; }
+.ride-card[aria-checked="true"] .ride-card__icon { color: var(--t-accent); }
+.ride-card__icon svg { width: clamp(22px, 10cqh - 14px, 42px); height: clamp(22px, 10cqh - 14px, 42px); stroke-width: 1.4; }
+.ride-card__price { grid-area: price; justify-self: end; font-size: clamp(16px, 6cqh - 6px, 23px); font-weight: 700; }
+.ride-card__text { grid-area: text; display: flex; flex-direction: column; min-width: 0; }
+.ride-card__name { font-size: clamp(14px, 5cqh - 4px, 18px); font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ride-card__meta { display: inline-flex; align-items: center; gap: 3px; font-size: clamp(12px, 4cqh - 3px, 14px); color: var(--t-muted); }
+.ride-card__meta svg { width: 12px; height: 12px; }
+
+/* Forma de pago: "Seleccionar pago" a la izquierda y el pago elegido a la derecha */
+.payment { position: relative; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.payment__picker, .payment__current {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-width: 0;
+  height: var(--option);
+  border-radius: var(--t-radius);
+  font-size: clamp(13px, 4.5cqh - 3px, 17px);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.payment__picker {
+  border: 1px solid var(--t-border-strong);
+  background: var(--t-surface);
+  color: var(--t-text);
+  transition: transform 0.15s, border-color 0.2s;
+}
+.payment__picker:active { transform: scale(0.97); }
+/* "Seleccionar pago" es largo: letra un poco más chica y menos espacio entre icono y texto para que quepa completo */
+.payment__picker { gap: 6px; padding: 0 8px; font-size: clamp(13px, 4cqh - 4px, 16px); }
+/* En celulares angostos se oculta la flechita para que el texto quepa completo */
+@media (max-width: 380px) {
+  .payment__picker .payment__chevron { display: none; }
+}
+/* Los iconos nunca se encogen; si no cabe, el texto se recorta con "…" */
+.payment__picker svg, .payment__current svg { flex: none; }
+.payment__picker span, #payment-current-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.payment__picker[aria-expanded="true"] { border-color: var(--t-accent); }
+/* Aviso visual al tocar el pago elegido: "Seleccionar pago" brilla para indicar que ahí se cambia */
+.payment__picker.is-hinted { animation: picker-hint 1.1s ease-out; }
+@keyframes picker-hint {
+  0% { border-color: var(--t-border-strong); box-shadow: 0 0 0 0 rgba(255, 122, 47, 0); }
+  25% { border-color: var(--t-accent); box-shadow: 0 0 0 4px rgba(255, 122, 47, 0.35), 0 0 18px rgba(255, 122, 47, 0.45); background: var(--t-accent-soft); }
+  60% { border-color: var(--t-accent); box-shadow: 0 0 0 2px rgba(255, 122, 47, 0.2); }
+  100% { border-color: var(--t-border-strong); box-shadow: 0 0 0 0 rgba(255, 122, 47, 0); }
+}
+.payment__chevron { width: 14px; height: 14px; color: var(--t-muted); transition: transform 0.2s; }
+.payment__picker[aria-expanded="true"] .payment__chevron { transform: rotate(180deg); }
+
+/* Pago elegido (Efectivo por defecto) */
+.payment__current {
+  border: 0;
+  font-family: inherit;
+  cursor: pointer;
+  transition: transform 0.15s, background 0.2s;
+  background: var(--t-accent-soft);
+  box-shadow: inset 0 0 0 1px var(--t-accent);
+  color: #ffd9c2;
+}
+.payment__current-icon { display: inline-flex; color: var(--t-accent); }
+.payment__current.is-ticket { background: linear-gradient(135deg, rgba(255, 215, 106, 0.22), rgba(230, 180, 34, 0.12)); box-shadow: inset 0 0 0 1px #e6b422; color: #fff1b8; }
+.payment__current.is-ticket .payment__current-icon { color: #ffd76a; }
+.payment__current.is-changed { animation: card-pop 0.3s ease-out; }
+
+/* Lista de opciones: se abre hacia arriba, del lado derecho */
+.payment__menu {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 6px);
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  /* Mismo ancho que el recuadro derecho (pago elegido): la mitad menos el espacio entre columnas */
+  width: calc((100% - 8px) / 2);
+  padding: 6px;
+  border-radius: var(--t-radius);
+  border: 1px solid var(--t-border-strong);
+  background: #1b1b1f;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.5);
+  animation: menu-up 0.2s ease-out;
+}
+.payment__menu[hidden] { display: none; }
+@keyframes menu-up { from { opacity: 0; transform: translateY(8px); } }
+.payment__option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 42px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 9px;
+  background: none;
+  color: var(--t-text);
+  font-size: 15px;
+  font-weight: 600;
+  text-align: left;
+}
+.payment__option svg { color: var(--t-muted); }
+.payment__option[hidden] { display: none; }
+.payment__option[aria-checked="true"] { background: var(--t-accent-soft); color: #ffd9c2; }
+.payment__option[aria-checked="true"] svg { color: var(--t-accent); }
+
+/* Boleto dorado como forma de pago */
+.payment__option--ticket, .payment__option--ticket svg { color: #ffd76a; }
+.payment__option--ticket[aria-checked="true"] { background: rgba(255, 215, 106, 0.16); color: #fff1b8; }
+.payment__option--ticket .payment__badge { margin-left: auto; }
+.payment__badge {
+  display: inline-grid;
+  place-items: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: #ffd76a;
+  color: #2a1c00;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+/* Botones */
+.primary-button, .secondary-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: var(--button, 48px);
+  padding: 0 18px;
+  border-radius: var(--t-radius);
+  font-size: clamp(15px, 5cqh - 3px, 19px);
+  font-weight: 700;
+  transition: transform 0.15s, background 0.2s, opacity 0.2s;
+}
+.primary-button {
+  position: relative;
+  overflow: hidden;
+  border: 0;
+  background: linear-gradient(135deg, var(--t-accent), var(--t-accent-2));
+  color: #1f0d02;
+  box-shadow: 0 8px 22px rgba(255, 122, 47, 0.3);
+}
+.primary-button::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(110deg, transparent 30%, rgba(255, 255, 255, 0.35) 50%, transparent 70%);
+  transform: translateX(-100%);
+  animation: shine 3.2s ease-in-out infinite;
+}
+@keyframes shine { 0%, 55% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
+.secondary-button { border: 1px solid var(--t-border-strong); background: var(--t-surface); color: var(--t-text); }
+.primary-button:active, .secondary-button:active { transform: scale(0.98); }
+.primary-button:disabled { background: var(--t-surface-2); color: var(--t-muted); box-shadow: none; cursor: default; transform: none; }
+.primary-button:disabled::after { display: none; }
+
+/* Mensaje y Llamar: grandes, con icono y texto (más importantes que cancelar) */
+.contact-button {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: var(--button, 48px);
+  border-radius: var(--t-radius);
+  border: 1px solid rgba(255, 122, 47, 0.45);
+  background: var(--t-accent-soft);
+  color: var(--t-text);
+  font-size: clamp(15px, 3.4cqh, 17px);
+  font-weight: 700;
+  transition: transform 0.15s, background 0.2s;
+}
+.contact-button svg { color: var(--t-accent); }
+.contact-button:active { transform: scale(0.97); background: rgba(255, 122, 47, 0.24); }
+
+/* Cancelar: pequeño y discreto */
+.cancel-button {
+  flex: none;
+  min-height: var(--button, 48px);
+  padding: 0 14px;
+  border-radius: var(--t-radius);
+  border: 1px solid var(--t-border);
+  background: transparent;
+  color: var(--t-muted);
+  font-size: 14px;
+  font-weight: 600;
+}
+.cancel-button:active { transform: scale(0.97); color: #f87171; border-color: rgba(248, 113, 113, 0.5); }
+.secondary-button:disabled { color: var(--t-muted); cursor: default; transform: none; }
+
+/* Encabezado de estado (buscando, en camino, llegó, espera, en curso, finalizado) */
+.status-head { display: flex; flex-direction: column; gap: 2px; }
+.status-head__eyebrow { margin: 0; font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--t-muted); }
+.status-head.is-changing { animation: step-in 0.35s ease-out; }
+
+/* Color de cada fase del viaje en vivo */
+[data-step="live"] { --tone: var(--t-accent); }
+[data-step="live"][data-tone="arrived"] { --tone: var(--t-positive); }
+[data-step="live"][data-tone="waiting"] { --tone: var(--t-warning); }
+[data-step="live"][data-tone="ontrip"] { --tone: var(--t-info); }
+/* Últimos segundos para responder al conductor */
+[data-step="live"][data-tone="urgent"] { --tone: #f87171; }
+[data-step="live"][data-tone="urgent"] .status-head__title { color: #fca5a5; }
+[data-step="live"] .status-head__eyebrow, [data-step="searching"] .status-head__eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--tone, var(--t-accent));
+}
+[data-step="live"] .status-head__eyebrow::before, [data-step="searching"] .status-head__eyebrow::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: live-dot 1.4s ease-in-out infinite;
+}
+@keyframes live-dot {
+  0%, 100% { box-shadow: 0 0 0 0 currentColor; opacity: 1; }
+  50% { box-shadow: 0 0 0 4px transparent; opacity: 0.55; }
+}
+.status-head__eyebrow--positive { color: var(--t-positive); }
+[data-step="rating"] .status-head__eyebrow--positive::before { content: "✓ "; }
+.status-head__title { margin: 0; font-size: clamp(19px, 4.6cqh, 24px); font-weight: 700; letter-spacing: -0.02em; }
+/* El contador de espera usa números de ancho fijo para que no "baile" */
+.status-head__title--timer { font-variant-numeric: tabular-nums; }
+.status-head__sub { margin: 0; font-size: 13px; color: var(--t-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Barra indeterminada mientras se busca conductor */
+.search-bar { position: relative; height: 3px; overflow: hidden; border-radius: 3px; background: var(--t-surface-2); }
+.search-bar span { position: absolute; inset: 0 auto 0 0; width: 35%; background: linear-gradient(90deg, transparent, var(--t-accent), var(--t-accent-2)); animation: search-slide 1.3s ease-in-out infinite; }
+@keyframes search-slide { from { transform: translateX(-100%); } to { transform: translateX(300%); } }
+
+/* Progreso del viaje en curso */
+.trip-progress { height: 3px; border-radius: 3px; background: var(--t-surface-2); overflow: hidden; }
+.trip-progress[hidden] { display: none; }
+.trip-progress span {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: var(--tone, var(--t-info));
+  box-shadow: 0 0 8px var(--tone, var(--t-info));
+  transition: width 0.3s linear, background 0.3s;
+}
+
+/* Mini mapa: ocupa el espacio que sobre entre el encabezado y la tarjeta del conductor */
+.trip-map {
+  position: relative;
+  flex: 1;
+  min-height: 60px;
+  overflow: hidden;
+  border-radius: var(--t-radius);
+  border: 1px solid var(--t-border);
+  background: #121316;
+}
+/*
+ * Más específico que ".trip-panel svg" (tamaño de iconos). Va en posición absoluta para que el mapa
+ * solo ocupe el espacio que sobra y nunca empuje el contenido (evita scroll en celulares chicos).
+ */
+.trip-panel .trip-map__svg { position: absolute; inset: 0; display: block; width: 100%; height: 100%; fill: none; stroke: none; stroke-width: 0; }
+.trip-map__ground { fill: #16171a; }
+.trip-map__park { fill: #17241c; }
+.trip-map__street { stroke: #2b2c32; stroke-width: 9; stroke-linecap: square; }
+.trip-map__street--minor { stroke: #1f2024; stroke-width: 4; }
+.trip-map__route-casing { fill: none; stroke: #4a4b55; stroke-width: 4; stroke-linejoin: round; stroke-linecap: round; }
+.trip-map__route {
+  fill: none;
+  stroke: var(--tone, var(--t-accent));
+  stroke-width: 4;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 3px var(--tone, var(--t-accent)));
+}
+.trip-map__pickup { fill: #ffffff; }
+.trip-map__pickup-dot { fill: #0b0b0d; }
+.trip-map__destination { fill: var(--t-info); }
+.trip-map__destination-dot { fill: #0b0b0d; }
+.trip-map__car-body { fill: #ffffff; stroke: var(--t-accent); stroke-width: 1.6; }
+.trip-map__car { filter: drop-shadow(0 0 4px rgba(255, 122, 47, 0.8)); }
+.trip-map__car-glass { fill: #0b0b0d; }
+.trip-map__pulse {
+  fill: rgba(255, 122, 47, 0.35);
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: map-pulse 1.8s ease-out infinite;
+}
+.trip-map__pulse--late { animation-delay: 0.9s; }
+@keyframes map-pulse { from { transform: scale(0.6); opacity: 1; } to { transform: scale(4); opacity: 0; } }
+
+/* Pines de lugares en el selector de mapa */
+.trip-map__place { cursor: pointer; }
+.trip-map__place-hit { fill: transparent; }
+.trip-map__place-dot { fill: #ffffff; stroke: rgba(11, 11, 13, 0.5); stroke-width: 1; transition: r 0.2s, fill 0.2s; }
+.trip-map__place-icon { fill: none; stroke: #0b0b0d; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+.trip-map__place-label {
+  fill: var(--t-text);
+  font-size: 9px;
+  font-weight: 700;
+  paint-order: stroke;
+  stroke: #0b0b0d;
+  stroke-width: 3px;
+}
+.trip-map__place.is-selected .trip-map__place-dot { r: 12; fill: var(--t-accent); filter: drop-shadow(0 0 5px var(--t-accent)); }
+.trip-map__place.is-selected .trip-map__place-icon { stroke: #ffffff; }
+.trip-map__place.is-selected .trip-map__place-label { fill: #ffd9c2; }
+
+/* Pantalla "Buscar en el mapa": cubre la sección de viajes, como si se abriera una app de mapas */
+.map-picker {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 16px calc(var(--safe-bottom) + 12px);
+  background: var(--bg);
+  animation: picker-in 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.map-picker[hidden] { display: none; }
+@keyframes picker-in { from { opacity: 0; transform: translateY(16px); } }
+.map-picker__head { display: flex; align-items: center; gap: 12px; }
+.map-picker__back {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid var(--t-border-strong);
+  background: var(--t-surface);
+  color: var(--t-text);
+}
+.map-picker__title { margin: 0; font-size: 20px; font-weight: 700; letter-spacing: -0.02em; }
+.map-picker__map { min-height: 120px; }
+.map-picker__footer { display: flex; flex-direction: column; gap: 10px; }
+.map-picker__selection { margin: 0; display: flex; flex-direction: column; font-size: 14px; color: var(--t-muted); }
+.map-picker__selection strong { font-size: 17px; color: var(--t-text); }
+.map-picker .primary-button { min-height: 50px; }
+
+/* Tarjeta del conductor */
+.driver-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: var(--t-radius);
+  background: var(--t-surface);
+  border: 1px solid var(--t-border);
+}
+.driver-card__avatar {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #2a5bb0, #3b7de0);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  font-size: 14px;
+  font-weight: 700;
+}
+.driver-card__info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.driver-card__info strong { font-size: 15px; }
+.driver-card__meta { display: flex; align-items: center; gap: 4px; font-size: 12px; color: var(--t-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.trip-panel .driver-card__star { width: 12px; height: 12px; fill: var(--t-text); stroke: none; }
+.driver-card__plate {
+  padding: 5px 9px;
+  border-radius: 6px;
+  background: var(--t-text);
+  color: #0b0b0d;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Botones de la fase actual: iconos redondos (llamar, mensaje) + botón que ocupa el resto */
+.live-actions { display: flex; gap: 8px; }
+.live-actions .primary-button, .live-actions .secondary-button { flex: 1; }
+
+/* Calificación */
+.rating-question { margin: 0; font-size: 15px; font-weight: 600; }
+.rating-stars { display: flex; gap: 6px; }
+.rating-star {
+  display: grid;
+  place-items: center;
+  width: clamp(38px, 9cqh, 48px);
+  height: clamp(38px, 9cqh, 48px);
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--t-border-strong);
+}
+.trip-panel .rating-star svg { width: 100%; height: 100%; fill: currentColor; stroke: none; }
+.rating-star.is-on { color: #ffc043; animation: star-pop 0.35s ease-out; filter: drop-shadow(0 0 6px rgba(255, 192, 67, 0.45)); }
+@keyframes star-pop { 50% { transform: scale(1.25) rotate(-8deg); } }
+
+.tip-options { display: grid; grid-template-columns: 1.4fr 1fr 1fr 1fr; gap: 6px; }
+.tip-option {
+  height: var(--chip);
+  border-radius: 999px;
+  border: 1px solid var(--t-border);
+  background: var(--t-surface);
+  color: var(--t-text);
+  font-size: 13px;
+  font-weight: 600;
+}
+.tip-option[aria-checked="true"] { background: var(--t-accent-soft); border-color: var(--t-accent); color: #ffd9c2; }
+.tip-option { transition: transform 0.15s, background 0.2s, border-color 0.2s; }
+
+/* Premio para el personaje ganado en el viaje */
+.reward-card {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: var(--t-radius);
+  border: 1px solid rgba(255, 122, 47, 0.4);
+  background: linear-gradient(135deg, rgba(255, 122, 47, 0.12), var(--t-surface) 70%);
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--t-text);
+}
+.reward-card[hidden] { display: none; }
+#submit-rating { margin-top: auto; }
+
+/*
+ * Calificación centrada: todo el bloque queda al centro (horizontal y vertical) del espacio disponible,
+ * con el botón "Enviar calificación" abajo. Los dos margin-top: auto reparten el espacio sobrante.
+ */
+[data-step="rating"] { text-align: center; }
+[data-step="rating"] .status-head { align-items: center; margin-top: auto; }
+[data-step="rating"] .status-head__sub { white-space: normal; }
+[data-step="rating"] .rating-question { margin-top: 6px; }
+[data-step="rating"] .rating-stars { justify-content: center; gap: 10px; }
+[data-step="rating"] .rating-star { width: clamp(40px, 11cqh, 56px); height: clamp(40px, 11cqh, 56px); }
+[data-step="rating"] .tip-options { width: min(100%, 420px); margin-inline: auto; }
+[data-step="rating"] .reward-card { width: min(100%, 420px); margin-inline: auto; }
+
+/* ===== Confeti del festejo (encima de todo, no bloquea toques) ===== */
+.confetti-canvas { position: fixed; inset: 0; z-index: 80; width: 100vw; height: 100vh; pointer-events: none; }
+
+/* ===== Premio emergente: Boleto Dorado ===== */
+.ticket-modal { position: fixed; inset: 0; z-index: 70; display: grid; place-items: center; padding: 20px; }
+.ticket-modal[hidden] { display: none; }
+.ticket-modal__backdrop {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 50% 45%, rgba(255, 196, 70, 0.18), rgba(6, 6, 10, 0.82) 60%);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  animation: fade-in 0.3s ease-out;
+}
+@keyframes fade-in { from { opacity: 0; } }
+.ticket-modal__content {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  width: min(360px, 100%);
+  text-align: center;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+.ticket-modal__eyebrow { margin: 0; font-size: 12px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #ffd76a; }
+.ticket-modal__title { margin: -6px 0 4px; font-size: 22px; font-weight: 800; color: #fff; }
+.ticket-modal__hint { margin: 0; font-size: 13px; line-height: 1.4; color: rgba(245, 245, 246, 0.7); }
+.ticket-modal__button {
+  width: 100%;
+  min-height: 52px;
+  border: 0;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #e6b422, #ffd76a 50%, #e6b422);
+  color: #2a1c00;
+  font-size: 17px;
+  font-weight: 800;
+  box-shadow: 0 10px 28px rgba(230, 180, 34, 0.4);
+}
+.ticket-modal__button:active { transform: scale(0.98); }
+
+/* El boleto: dorado metálico, con muescas a los lados y una línea perforada entre el cuerpo y el talón */
+.golden-ticket {
+  --notch: 11px;
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  width: 100%;
+  min-height: 150px;
+  overflow: hidden;
+  border-radius: 16px;
+  color: #3a2600;
+  background: linear-gradient(135deg, #a87408 0%, #e6b422 18%, #ffe38a 38%, #fff3c4 48%, #f2c94c 60%, #c8930f 82%, #8f6205 100%);
+  box-shadow: 0 18px 50px rgba(230, 180, 34, 0.45), inset 0 0 0 1.5px rgba(255, 244, 200, 0.7);
+  /* Muescas redondas a la altura de la línea perforada */
+  -webkit-mask: radial-gradient(circle var(--notch) at calc(100% - 96px) 0, transparent 98%, #000) top / 100% 51% no-repeat,
+    radial-gradient(circle var(--notch) at calc(100% - 96px) 100%, transparent 98%, #000) bottom / 100% 51% no-repeat;
+  mask: radial-gradient(circle var(--notch) at calc(100% - 96px) 0, transparent 98%, #000) top / 100% 51% no-repeat,
+    radial-gradient(circle var(--notch) at calc(100% - 96px) 100%, transparent 98%, #000) bottom / 100% 51% no-repeat;
+}
+/* Destello que recorre el boleto */
+.golden-ticket::after {
+  content: "";
+  position: absolute;
+  inset: -20%;
+  background: linear-gradient(115deg, transparent 35%, rgba(255, 255, 255, 0.65) 50%, transparent 65%);
+  transform: translateX(-100%);
+  animation: ticket-shine 2.6s ease-in-out 0.9s infinite;
+  pointer-events: none;
+}
+@keyframes ticket-shine { 0% { transform: translateX(-100%); } 45%, 100% { transform: translateX(100%); } }
+.golden-ticket__main { display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 2px; padding: 16px 18px; text-align: left; }
+.golden-ticket__label { font-size: 11px; font-weight: 800; letter-spacing: 0.16em; text-transform: uppercase; opacity: 0.8; }
+.golden-ticket__value { font-size: 30px; font-weight: 900; line-height: 1.05; letter-spacing: -0.02em; text-shadow: 0 1px 0 rgba(255, 250, 225, 0.6); }
+.golden-ticket__detail { font-size: 12px; font-weight: 600; opacity: 0.85; }
+.golden-ticket__giver { margin-top: 8px; font-size: 12px; font-weight: 700; }
+.golden-ticket__stub {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 96px;
+  border-left: 2px dashed rgba(90, 60, 0, 0.45);
+}
+.golden-ticket__admit { font-size: 13px; font-weight: 900; letter-spacing: 0.08em; text-transform: uppercase; writing-mode: vertical-rl; transform: rotate(180deg); }
+.golden-ticket__code { font-size: 10px; font-weight: 800; letter-spacing: 0.06em; font-variant-numeric: tabular-nums; }
+
+/* ===== Selector de personajes: ocupa solo el cuadro del robot ===== */
+.sheet { position: absolute; inset: 0; z-index: 4; display: flex; align-items: flex-end; justify-content: center; }
+.sheet[hidden] { display: none; }
+.sheet__backdrop { position: absolute; inset: 0; background: rgba(6, 5, 20, 0.55); }
+.sheet__panel {
+  position: relative;
+  width: min(560px, 100%);
+  max-height: calc(100% - 20px);
+  overflow-y: auto;
+  margin: 0 10px 10px;
+  padding: 16px;
+  border-radius: var(--radius-lg);
+  background: var(--glass-strong);
+  animation: sheet-in 0.25s ease-out;
+}
+@keyframes sheet-in { from { transform: translateY(24px); opacity: 0; } }
+.sheet__header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.sheet__header h2 { margin: 0; font-size: 20px; }
+
+.character-grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+}
+.character-card {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 14px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--glass-border);
+  background: rgba(255, 255, 255, 0.05);
+  text-align: left;
+}
+.character-card strong { font-size: 16px; }
+.character-card span { font-size: 12px; color: var(--text-soft); }
+.character-card[aria-current="true"] { border-color: var(--accent); background: var(--accent-soft); }
+
+/* ===== Tablet / PC y celular en horizontal: personaje a la izquierda, viaje a la derecha ===== */
+@media (min-width: 900px), (orientation: landscape) and (max-height: 560px) {
+  .app {
+    grid-template-rows: none;
+    grid-template-columns: 1fr 1fr;
+  }
+  .character-stage { margin: calc(var(--safe-top) + 10px) 0 calc(var(--safe-bottom) + 10px) 10px; }
+  .trip-panel { padding-top: calc(var(--safe-top) + 20px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}

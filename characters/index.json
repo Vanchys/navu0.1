@@ -1,0 +1,9 @@
+{
+  "characters": [
+    {
+      "id": "robot-mascota",
+      "name": "Robot NaVu",
+      "manifest": "characters/robot-mascota/character.json"
+    }
+  ]
+}

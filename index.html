@@ -1,0 +1,285 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <!-- viewport-fit=cover permite usar toda la pantalla en celulares con notch -->
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0b0b0d">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <title>NaVu</title>
+  <!-- PWA: manifiesto e íconos para poder instalar la app desde Chrome -->
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-title" content="NaVu">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="stylesheet" href="css/styles.css">
+
+  <!-- three.js local (carpeta vendor) para que funcione sin internet -->
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "./vendor/three/three.module.js",
+        "three/addons/": "./vendor/three/addons/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <main class="app">
+    <!-- Mitad superior: cuadro del personaje con su escena de fondo -->
+    <section class="character-stage" id="character-stage" aria-label="Personaje">
+      <canvas id="viewport" aria-label="Vista 3D del personaje"></canvas>
+
+      <!-- Columna izquierda del cuadro: Oráculo, Historia y debajo los alimentos (todos del mismo tamaño) -->
+      <div class="stage-top" id="stage-top">
+        <div class="side-column">
+          <div class="info-buttons">
+            <button class="info-toggle" id="oracle-toggle" type="button" aria-expanded="false" aria-controls="oracle-panel" aria-label="Oráculo del día" title="Oráculo">
+              <span aria-hidden="true">🔮</span>
+            </button>
+            <button class="info-toggle" id="lore-toggle" type="button" aria-expanded="false" aria-controls="lore-panel" aria-label="Historia del personaje" title="Historia">
+              <span aria-hidden="true">📖</span>
+            </button>
+          </div>
+
+          <!-- Premios para alimentar (galleta, agua y dulce): se arrastran hasta el personaje -->
+          <div class="feed-tray" id="feed-tray" aria-label="Premios para alimentar"></div>
+        </div>
+
+        <section class="info-panel" id="lore-panel" aria-labelledby="lore-title" hidden>
+          <h2 class="info-panel__title" id="lore-title">Historia</h2>
+          <div class="info-panel__body" id="lore-body"></div>
+        </section>
+
+        <section class="info-panel info-panel--oracle" id="oracle-panel" aria-labelledby="oracle-title" hidden>
+          <h2 class="info-panel__title" id="oracle-title">Oráculo del día</h2>
+          <p class="oracle-text" id="oracle-text"></p>
+        </section>
+      </div>
+
+      <!-- Aviso breve cuando se obtiene un premio nuevo -->
+      <div class="reward-toast" id="reward-toast" role="status" aria-live="polite"></div>
+
+      <!-- Fila inferior del cuadro: botón del personaje -->
+      <div class="stage-bar" id="stage-bar">
+        <button class="character-switch" id="open-characters" type="button" aria-haspopup="dialog">
+          <span class="character-switch__badge" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><rect x="5" y="7" width="14" height="11" rx="4"/><circle cx="9.5" cy="12.5" r="1.4"/><circle cx="14.5" cy="12.5" r="1.4"/><path d="M12 7V4M12 4h.01"/></svg>
+          </span>
+          <span class="character-switch__name" id="character-name">…</span>
+        </button>
+
+      </div>
+
+      <!-- Barra de puntos del personaje (muy delgada, hasta abajo): se llena al alimentarlo, tope 5 -->
+      <div class="score-bar" id="score-bar" role="meter" aria-label="Puntos del personaje" aria-valuemin="0" aria-valuemax="5" aria-valuenow="0"></div>
+
+      <!-- Selector de personajes: se abre dentro del cuadro del robot, sin tapar la sección de viajes -->
+      <div class="sheet" id="characters-sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title" hidden>
+        <div class="sheet__backdrop" data-close></div>
+        <div class="sheet__panel">
+          <div class="sheet__header">
+            <h2 id="sheet-title">Mis personajes</h2>
+            <button class="icon-button" type="button" data-close aria-label="Cerrar">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+            </button>
+          </div>
+          <ul class="character-grid" id="character-grid"></ul>
+        </div>
+      </div>
+
+      <!-- Pantalla de carga (solo cubre el cuadro del personaje) -->
+      <div class="loader" id="loader" role="status">
+        <div class="loader__ring"></div>
+        <p id="loader-text">Cargando personaje…</p>
+      </div>
+    </section>
+
+    <!-- Parte inferior: módulo para pedir un viaje (demo con datos y tiempos simulados, sin pagos reales) -->
+    <section class="trip-panel" id="trip-panel" aria-labelledby="trip-title">
+
+      <!-- Paso 1: punto de partida, destino, tipo de viaje y forma de pago -->
+      <div class="trip-step" data-step="form">
+        <h1 class="trip-title" id="trip-title">¿A dónde vamos?</h1>
+
+        <div class="route-card">
+          <!-- Punto de partida: vacío al inicio. A la orilla: mi ubicación actual y, al final, el mapa. Al llenarse se sombrea en naranja -->
+          <div class="route-row route-row--origin">
+            <span class="route-marker route-marker--origin" aria-hidden="true"></span>
+            <label class="route-row__text">
+              <span class="route-row__label">Punto de partida</span>
+              <input class="route-row__input" id="trip-origin" type="text" placeholder="¿De dónde empezamos?" autocomplete="off" enterkeyhint="next">
+            </label>
+            <div class="route-row__tools">
+              <button type="button" class="route-tool" id="use-location" aria-label="Usar mi ubicación actual" title="Mi ubicación actual"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-6.5-5.6-6.5-10.5a6.5 6.5 0 0 1 13 0C18.5 15.4 12 21 12 21z"/><circle cx="12" cy="10.5" r="2.3"/></svg></button>
+              <button type="button" class="route-tool" data-map="origin" aria-label="Buscar punto de partida en el mapa" title="Buscar en el mapa"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4 3 6.5v13.5l6-2.5 6 2.5 6-2.5V4l-6 2.5z"/><path d="M9 4v13.5M15 6.5V20"/></svg></button>
+            </div>
+          </div>
+          <div class="route-card__connector" aria-hidden="true"></div>
+          <!-- Destino: a la orilla, el mapa. Al escribir se sombrea en naranja -->
+          <div class="route-row route-row--destination">
+            <span class="route-marker route-marker--destination" aria-hidden="true"></span>
+            <label class="route-row__text">
+              <span class="route-row__label">Destino</span>
+              <input class="route-row__input" id="trip-destination" type="text" placeholder="¿A dónde vas?" autocomplete="off" enterkeyhint="done">
+            </label>
+            <div class="route-row__tools">
+              <button type="button" class="route-tool" data-map="destination" aria-label="Buscar destino en el mapa" title="Buscar en el mapa"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4 3 6.5v13.5l6-2.5 6 2.5 6-2.5V4l-6 2.5z"/><path d="M9 4v13.5M15 6.5V20"/></svg></button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Lugares rápidos: Plaza a la izquierda, Trabajo al centro y Casa a la derecha -->
+        <div class="quick-places" id="quick-places">
+          <button type="button" class="quick-place" data-place="Plaza Central" aria-pressed="false">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 8h14l-1 12H6z"/><path d="M9 8a3 3 0 0 1 6 0"/></svg>Plaza
+          </button>
+          <button type="button" class="quick-place" data-place="Trabajo" aria-pressed="false">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M9 7V5h6v2"/></svg>Trabajo
+          </button>
+          <button type="button" class="quick-place" data-place="Casa" aria-pressed="false">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v10h13V10"/></svg>Casa
+          </button>
+        </div>
+
+        <div class="ride-options" id="ride-options">
+          <div class="ride-list" id="ride-list" role="radiogroup" aria-label="Tipo de viaje"></div>
+          <!-- Forma de pago: a la izquierda "Seleccionar pago" (abre las opciones), a la derecha el pago elegido -->
+          <div class="payment" id="payment">
+            <button type="button" class="payment__picker" id="payment-picker" aria-haspopup="listbox" aria-expanded="false" aria-controls="payment-menu">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18"/><path d="M16 14.5h2"/></svg><span>Seleccionar pago</span><svg class="payment__chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 14 5-5 5 5"/></svg>
+            </button>
+            <!-- Pago elegido: al tocarlo se anima como los demás botones e ilumina "Seleccionar pago" (no abre las opciones) -->
+            <button type="button" class="payment__current" id="payment-current" aria-live="polite">
+              <span class="payment__current-icon" id="payment-current-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="6" width="18" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/></svg></span>
+              <span id="payment-current-label">Efectivo</span>
+            </button>
+
+            <!-- Opciones de pago: se abren del lado derecho (Efectivo por defecto) -->
+            <div class="payment__menu" id="payment-menu" role="listbox" aria-label="Formas de pago" hidden>
+              <button type="button" class="payment__option" data-payment="Efectivo" aria-checked="true" role="option">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="6" width="18" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/></svg><span>Efectivo</span>
+              </button>
+              <button type="button" class="payment__option" data-payment="Transferencia" aria-checked="false" role="option">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h14l-3.5-3.5"/><path d="M20 15H6l3.5 3.5"/></svg><span>Transferencia</span>
+              </button>
+              <!-- Boleto dorado ganado con el personaje: viaje gratis (aparece solo si tienes boletos) -->
+              <button type="button" class="payment__option payment__option--ticket" id="pay-ticket" data-payment="Boleto dorado" aria-checked="false" role="option" hidden>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 8a2 2 0 0 0 0 4v0a2 2 0 0 0 0 4v2h18v-2a2 2 0 0 0 0-4 2 2 0 0 0 0-4V6H3z"/><path d="M14 6v12" stroke-dasharray="2 2"/></svg><span>Boleto dorado</span><span class="payment__badge" id="ticket-count">1</span>
+              </button>
+            </div>
+          </div>
+          <button type="button" class="primary-button" id="request-trip">Elige un destino</button>
+        </div>
+      </div>
+
+      <!-- Buscar en el mapa: se abre encima de la sección de viajes con el mismo diseño del mapa del viaje -->
+      <div class="map-picker" id="map-picker" role="dialog" aria-modal="true" aria-labelledby="map-picker-title" hidden>
+        <header class="map-picker__head">
+          <button type="button" class="map-picker__back" id="map-picker-close" aria-label="Cerrar mapa">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
+          </button>
+          <div>
+            <p class="status-head__eyebrow">Buscar en el mapa</p>
+            <h2 class="map-picker__title" id="map-picker-title">Elige tu destino</h2>
+          </div>
+        </header>
+        <div class="trip-map map-picker__map" id="picker-map"></div>
+        <div class="map-picker__footer">
+          <p class="map-picker__selection" id="map-picker-selection">Toca un lugar en el mapa</p>
+          <button type="button" class="primary-button" id="map-picker-confirm" disabled>Confirmar</button>
+        </div>
+      </div>
+
+      <!-- Paso 2: buscando conductor -->
+      <div class="trip-step" data-step="searching" hidden>
+        <header class="status-head">
+          <p class="status-head__eyebrow">Solicitud enviada</p>
+          <h2 class="status-head__title">Buscando conductor…</h2>
+          <p class="status-head__sub" id="searching-summary"></p>
+        </header>
+        <div class="search-bar" aria-hidden="true"><span></span></div>
+        <div class="trip-map" id="search-map" aria-hidden="true"></div>
+        <button type="button" class="secondary-button" data-action="cancel">Cancelar solicitud</button>
+      </div>
+
+      <!-- Paso 3: viaje en vivo (conductor en camino → llegó → espera → viaje en curso) -->
+      <div class="trip-step" data-step="live" hidden>
+        <header class="status-head">
+          <p class="status-head__eyebrow" id="live-eyebrow">Conductor en camino</p>
+          <h2 class="status-head__title" id="live-title">Llega en 3 min</h2>
+          <p class="status-head__sub" id="live-sub"></p>
+        </header>
+        <div class="trip-progress" id="live-progress" hidden><span id="live-progress-fill"></span></div>
+        <div class="trip-map" id="live-map" aria-label="Mapa del viaje"></div>
+
+        <div class="driver-card">
+          <span class="driver-card__avatar" id="driver-initials" aria-hidden="true">CM</span>
+          <div class="driver-card__info">
+            <strong id="driver-name">Carlos M.</strong>
+            <span class="driver-card__meta">
+              <svg class="driver-card__star" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/></svg>
+              <span id="driver-rating">4.9</span> · <span id="driver-car">Nissan Versa gris</span>
+            </span>
+          </div>
+          <span class="driver-card__plate" id="driver-plate">NAV-128</span>
+        </div>
+
+        <!-- Botones que cambian según la fase del viaje (los arma trip-request.js) -->
+        <div class="live-actions" id="live-actions"></div>
+      </div>
+
+      <!-- Paso 4: viaje finalizado, calificación y premio para el personaje -->
+      <div class="trip-step" data-step="rating" hidden>
+        <header class="status-head">
+          <p class="status-head__eyebrow status-head__eyebrow--positive">Viaje finalizado</p>
+          <h2 class="status-head__title" id="rating-title">Llegaste a tu destino</h2>
+          <p class="status-head__sub" id="rating-sub"></p>
+        </header>
+
+        <p class="rating-question" id="rating-question">¿Cómo estuvo tu viaje?</p>
+        <div class="rating-stars" id="rating-stars" role="radiogroup" aria-label="Calificación"></div>
+
+        <div class="tip-options" id="tip-options" role="radiogroup" aria-label="Propina">
+          <button type="button" class="tip-option" data-tip="0" role="radio" aria-checked="true">Sin propina</button>
+          <button type="button" class="tip-option" data-tip="10" role="radio" aria-checked="false">$10</button>
+          <button type="button" class="tip-option" data-tip="20" role="radio" aria-checked="false">$20</button>
+          <button type="button" class="tip-option" data-tip="30" role="radio" aria-checked="false">$30</button>
+        </div>
+
+        <p class="reward-card" id="reward-note"></p>
+        <button type="button" class="primary-button" id="submit-rating" disabled>Califica tu viaje</button>
+      </div>
+    </section>
+  </main>
+
+  <!-- Premio emergente: Boleto Dorado (viaje gratis) que el personaje regala al llenar su barra -->
+  <div class="ticket-modal" id="ticket-modal" role="dialog" aria-modal="true" aria-labelledby="ticket-heading" hidden>
+    <div class="ticket-modal__backdrop"></div>
+    <div class="ticket-modal__content">
+      <p class="ticket-modal__eyebrow">¡Barra completa!</p>
+      <h2 class="ticket-modal__title" id="ticket-heading">Tu personaje te regala un viaje</h2>
+
+      <div class="golden-ticket" id="golden-ticket">
+        <div class="golden-ticket__main">
+          <span class="golden-ticket__label">Boleto dorado</span>
+          <strong class="golden-ticket__value">Viaje gratis</strong>
+          <span class="golden-ticket__detail">NaVu Taxi o NaVu Ejecutivo</span>
+          <span class="golden-ticket__giver" id="ticket-giver">Regalo de tu personaje</span>
+        </div>
+        <div class="golden-ticket__stub">
+          <span class="golden-ticket__admit">1 viaje</span>
+          <span class="golden-ticket__code" id="ticket-code">NAVU-0000</span>
+        </div>
+      </div>
+
+      <p class="ticket-modal__hint">Úsalo al pedir tu próximo viaje eligiendo «Boleto» como forma de pago.</p>
+      <button type="button" class="ticket-modal__button" id="ticket-claim">Guardar mi boleto</button>
+    </div>
+  </div>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,15 @@
+# Documentación interna y archivos de reglas (no se suben)
+CLAUDE.md
+reglas universales codigo*.txt
+
+# Dependencias, variables de entorno y credenciales
+node_modules/
+.env
+.env.*
+*.pem
+*.key
+
+# Archivos del sistema y registros
+.DS_Store
+Thumbs.db
+*.log

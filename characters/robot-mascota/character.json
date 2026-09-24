@@ -1,0 +1,193 @@
+{
+  "id": "robot-mascota",
+  "name": "Robot NaVu",
+  "model": "characters/robot-mascota/model.glb",
+  "fps": 24.0,
+  "frameStart": 1,
+  "height": 2.05,
+  "defaultClip": "Reposo",
+  "clips": [
+    {
+      "id": "Si",
+      "label": "Si",
+      "start": 1,
+      "end": 79,
+      "loop": false
+    },
+    {
+      "id": "No",
+      "label": "No",
+      "start": 80,
+      "end": 239,
+      "loop": false
+    },
+    {
+      "id": "Saludo",
+      "label": "Saludo",
+      "start": 240,
+      "end": 329,
+      "loop": false
+    },
+    {
+      "id": "Pensando",
+      "label": "Pensando",
+      "start": 330,
+      "end": 439,
+      "loop": true
+    },
+    {
+      "id": "Shhh",
+      "label": "Shhh",
+      "start": 440,
+      "end": 529,
+      "loop": false
+    },
+    {
+      "id": "Sentarse",
+      "label": "Sentarse",
+      "start": 530,
+      "end": 669,
+      "loop": false
+    },
+    {
+      "id": "Brincar",
+      "label": "Brincar",
+      "start": 670,
+      "end": 759,
+      "loop": false
+    },
+    {
+      "id": "Abrazo",
+      "label": "Abrazo",
+      "start": 760,
+      "end": 879,
+      "loop": false
+    },
+    {
+      "id": "Llorar",
+      "label": "Llorar",
+      "start": 880,
+      "end": 1019,
+      "loop": false
+    },
+    {
+      "id": "Reir",
+      "label": "Reir",
+      "start": 1020,
+      "end": 1139,
+      "loop": false
+    },
+    {
+      "id": "Galleta",
+      "label": "Galleta",
+      "start": 1140,
+      "end": 1289,
+      "loop": false
+    },
+    {
+      "id": "Correr_Galleta",
+      "label": "Correr Galleta",
+      "start": 1290,
+      "end": 1449,
+      "loop": true
+    },
+    {
+      "id": "Agua",
+      "label": "Agua",
+      "start": 1450,
+      "end": 1579,
+      "loop": false
+    },
+    {
+      "id": "Correr_Agua",
+      "label": "Correr Agua",
+      "start": 1580,
+      "end": 1739,
+      "loop": true
+    },
+    {
+      "id": "Golosina",
+      "label": "Golosina",
+      "start": 1740,
+      "end": 1855,
+      "loop": false
+    },
+    {
+      "id": "Correr_Golosina",
+      "label": "Correr Golosina",
+      "start": 1856,
+      "end": 2019,
+      "loop": true
+    },
+    {
+      "id": "Reposo",
+      "label": "Reposo",
+      "start": 2020,
+      "end": 2116,
+      "loop": true
+    }
+  ],
+  "source": "robot_mascota.blend",
+  "interactions": {
+    "feeding": {
+      "food": [
+        "Galleta",
+        "Correr_Galleta"
+      ],
+      "drink": [
+        "Agua",
+        "Correr_Agua"
+      ],
+      "candy": [
+        "Golosina",
+        "Correr_Golosina"
+      ]
+    },
+    "tapExclude": [
+      "Reposo",
+      "Galleta",
+      "Correr_Galleta",
+      "Agua",
+      "Correr_Agua",
+      "Golosina",
+      "Correr_Golosina"
+    ],
+    "tripReactions": {
+      "searching": "Pensando",
+      "driverAssigned": "Saludo",
+      "driverArrived": null,
+      "passengerReady": null,
+      "tripStarted": null,
+      "completed": "Brincar",
+      "rated": null,
+      "cancelled": "Llorar"
+    },
+    "celebrate": "Brincar"
+  },
+  "stageRadius": 2.5,
+  "lore": {
+    "title": "La historia de Robot NaVu",
+    "paragraphs": [
+      "NaVu se encendió por primera vez una noche de lluvia, en un pequeño taller escondido entre las avenidas de la ciudad. Lo armaron con piezas de taxis retirados: un tablero que aún marcaba kilómetros, dos faros cansados y un viejo GPS que recordaba cada calle, cada atajo y cada bache.",
+      "Al abrir los ojos, lo primero que vio fue un mapa. Desde entonces tiene una sola misión grabada en sus circuitos: que nadie se pierda en el camino. Cada vez que alguien pide un viaje, su antena brilla y calcula la ruta más feliz, no solo la más corta.",
+      "Aprendió a saludar viendo a los conductores despedirse de sus pasajeros, y a reír escuchando las historias del asiento de atrás. Por eso se pone pensativo mientras busca conductor y brinca de alegría cuando llegas a tu destino.",
+      "Le encantan las galletas (aunque no sabe masticar), toma agua para enfriar sus engranes y guarda los dulces para las ocasiones especiales. Cuando está contento, corre en círculos hasta marearse.",
+      "Dicen que si lo alimentas después de cada viaje, su barra de energía se llena y NaVu te devuelve el cariño con su mejor festejo."
+    ]
+  },
+  "oracles": [
+    "🔋 Tu batería de hoy viene al 100%. Úsala en lo que te haga brillar.",
+    "🧭 Tu GPS interno recalcula a tu favor: el camino largo también llega a destino.",
+    "⚙️ Hasta el engrane más pequeño mueve la máquina entera. Hoy tu esfuerzo cuenta.",
+    "📡 Detecto buenas señales en tu ruta: alguien va a sonreír gracias a ti.",
+    "🛠️ Error 404: preocupación no encontrada. Sigue avanzando.",
+    "🚕 No importa la velocidad, lo importante es no apagar el motor.",
+    "✨ Mis sensores predicen que hoy aprenderás algo que mañana te hará más fuerte.",
+    "🔄 Si algo falla, reinicia con calma. Hasta los robots necesitamos una pausa.",
+    "🗺️ Hoy no necesitas saber todo el camino, solo el siguiente giro.",
+    "🔧 Un ajuste pequeño en tu rutina puede darte el mejor rendimiento del día.",
+    "🌙 Mis registros indican que el descanso también es parte del viaje. Recárgate sin culpa.",
+    "🤖 Procesando… resultado: eres más capaz de lo que tu sistema cree.",
+    "🚦 Si la luz está en rojo, aprovecha para respirar. El verde siempre llega."
+  ]
+}
